@@ -1,0 +1,43 @@
+Lean (version 4.19.0, x86_64-unknown-linux-gnu, commit 6caaee842e94, Release)
+'Prlm.feqrefl' does not depend on any axioms
+'Prlm.feqsymm' does not depend on any axioms
+'Prlm.feqtrans' depends on axioms: [propext, Quot.sound]
+'Prlm.flerefl' does not depend on any axioms
+'Prlm.fletrans' depends on axioms: [propext, Quot.sound]
+'Prlm.fleofeq' does not depend on any axioms
+'Prlm.fmuleq' depends on axioms: [propext, Quot.sound]
+'Prlm.fmulone' depends on axioms: [propext]
+'Prlm.fonemul' depends on axioms: [propext]
+'Prlm.fmulinv' depends on axioms: [propext]
+'Prlm.flemul' depends on axioms: [propext, Quot.sound]
+'Sel.selnone' depends on axioms: [propext]
+'Sel.selmem' depends on axioms: [propext]
+'Sel.selmax' depends on axioms: [propext]
+'Sel.selfirst' depends on axioms: [propext]
+'Sel.sel_spec' depends on axioms: [propext]
+'Sel.memsplit' depends on axioms: [propext]
+'Sel.spec_unique' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Prlm.appendinj' does not depend on any axioms
+'Prlm.completes_extends' depends on axioms: [propext, Quot.sound]
+'Prlm.pairwise_flatmap' depends on axioms: [propext, Quot.sound]
+'Prlm.completes_nodup' depends on axioms: [propext, Quot.sound]
+'Prlm.decode_spec' depends on axioms: [propext, Quot.sound]
+'Prlm.decode_determined' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Prlm.cert_sound' does not depend on any axioms
+'Prlm.cert_blocked' does not depend on any axioms
+'Prlm.fmulassoc' depends on axioms: [propext, Quot.sound]
+'Prlm.fmul_pos2' does not depend on any axioms
+'Prlm.multat_inv' depends on axioms: [propext]
+'Prlm.multat_pos' depends on axioms: [propext]
+'Prlm.overlay_roundtrip' depends on axioms: [propext, Quot.sound]
+'Prlm.wscore_congr' depends on axioms: [propext, Quot.sound]
+'Prlm.overlay_empty' depends on axioms: [propext, Quot.sound]
+'Prlm.overlay_roundtrip_score' depends on axioms: [propext, Quot.sound]
+'Prlm.multat_none' depends on axioms: [propext]
+'Prlm.overlay_cone' depends on axioms: [propext, Quot.sound]
+'Prlm.ascore_agree' depends on axioms: [propext]
+'Prlm.ascore_reuse' depends on axioms: [propext]
+'Prlm.greedy_control' does not depend on any axioms
+'Prlm.blocked_control' depends on axioms: [propext, Quot.sound]
+Axiom subset check passed: printed axioms are a subset of {propext, Classical.choice, Quot.sound}
+Axioms printed: Classical.choice Quot.sound propext 
