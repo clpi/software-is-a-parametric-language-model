@@ -26,6 +26,7 @@ counts below say both numbers.
 from __future__ import annotations
 
 import hashlib
+import heapq
 import importlib.util
 import os
 from fractions import Fraction
@@ -134,3 +135,129 @@ def scratch(harness, table, keys):
 def overlay(row, tok, mult):
     """The harness's overlay: one entry of one row scaled by mult."""
     return [(t, w * mult if t == tok else w) for t, w in row]
+
+
+# ------------------------------------------------------------- resume
+
+def decode_resumable(table, pre, bound, depth, start=None):
+    """A replica of the harness's certified_decode that records, before every
+    lookup, the full decoder state (heap, tie counter, unresolved bounds, best,
+    cost, and the prefix about to be read). Passing start resumes from one of
+    those checkpoints. The original decoder stays the checker: the gate
+    compares every result of this replica, fresh and resumed, against it.
+
+    Returns (verdict dict as certified_decode builds it, checkpoints, reads),
+    where reads is the ordered list of (key, row hash) looked up."""
+    get = lambda t, p: t.get(tuple(p))
+    if start is None:
+        heap = [(Fraction(-1), 0, list(pre), Fraction(1))]
+        nxt = 1
+        unresolved, best, best_score = [], None, None
+        cost = {"lookups": 0, "pops": 0}
+        pending = None
+    else:
+        heap, nxt, unresolved, best, best_score, cost, pending = _thaw(start)
+    ckpts, reads = [], []
+    while True:
+        if pending is None:
+            if not heap:
+                break
+            negscore, _, cur, score = heapq.heappop(heap)
+            cost["pops"] += 1
+            score = -negscore
+            if best_score is not None and score < best_score:
+                break
+            if len(cur) == depth:  # the harness's done()
+                if best_score is None or score > best_score:
+                    best, best_score = list(cur[len(pre):]), score
+                continue
+            if len(cur) - len(pre) >= bound:
+                unresolved.append(score)
+                continue
+            pending = (cur, score)
+        cur, score = pending
+        ckpts.append((tuple(cur), _freeze(heap, nxt, unresolved, best, best_score, cost, pending)))
+        cost["lookups"] += 1
+        row = get(table, cur)
+        reads.append((tuple(cur), row_hash(row)))
+        pending = None
+        if row is None:
+            unresolved.append(score)
+            continue
+        for tok, w in row:
+            heapq.heappush(heap, (-(score * w), nxt, cur + [tok], score * w))
+            nxt += 1
+    blocking = None
+    if best is not None:
+        limits = unresolved + ([-heap[0][0]] if heap else [])
+        over = [b for b in limits if b > best_score]
+        if over:
+            blocking = min(over)
+    certified = best is not None and blocking is None
+    return ({"answer": best, "certified": certified, "score": best_score,
+             "blocking": blocking, "cost": cost}, ckpts, reads)
+
+
+def _freeze(heap, nxt, unresolved, best, best_score, cost, pending):
+    return ([(a, b, list(c), d) for a, b, c, d in heap], nxt, list(unresolved),
+            None if best is None else list(best), best_score, dict(cost),
+            (list(pending[0]), pending[1]))
+
+
+def _thaw(s):
+    heap, nxt, unresolved, best, best_score, cost, pending = s
+    return ([(a, b, list(c), d) for a, b, c, d in heap], nxt, list(unresolved),
+            None if best is None else list(best), best_score, dict(cost),
+            (list(pending[0]), pending[1]))
+
+
+class ResumeEngine(Engine):
+    """Engine whose re-derivation resumes each affected query at its first
+    read of the edited key, from the checkpoint taken just before that read.
+    Reads before that point saw unedited keys, so they are carried (their
+    hashes are re-checked); the heap state is what the original run had."""
+
+    def __init__(self, harness, table, queries):
+        super().__init__(harness, table, queries)
+        self.trace = {}           # query key -> (checkpoints, reads)
+        self.resumed_from = []    # (query key, index of the resumed read)
+
+    def _derive(self, qk, start_at=None):
+        pre, bound = qk
+        if start_at is None:
+            v, ck, rd = decode_resumable(dict(self.table), pre, bound, self.depth)
+            self.lookups += v["cost"]["lookups"]
+        else:
+            ck0, rd0 = self.trace[qk]
+            for k, hsh in rd0[:start_at]:
+                assert row_hash(dict.get(self.table, k)) == hsh, (qk, k)
+            v, ck1, rd1 = decode_resumable(dict(self.table), pre, bound, self.depth, start=ck0[start_at][1])
+            ck, rd = ck0[:start_at] + ck1, rd0[:start_at] + rd1
+            self.lookups += len(rd1)
+        self.trace[qk] = (ck, rd)
+        cone = {}
+        for k, hsh in rd:
+            cone[k] = hsh
+        self.state[qk] = (v, cone)
+
+    def edit(self, row_key, new_row):
+        if new_row is None:
+            dict.pop(self.table, row_key, None)
+        else:
+            dict.__setitem__(self.table, row_key, new_row)
+        before = self.lookups
+        self.rederived, self.carried, self.resumed_from = [], [], []
+        new_hash = row_hash(dict.get(self.table, row_key))
+        for qk in self.keys:
+            _v, cone = self.state[qk]
+            if row_key in cone and cone[row_key] != new_hash:
+                rd = self.trace[qk][1]
+                i = next(j for j, (k, _h) in enumerate(rd) if k == row_key)
+                self._derive(qk, start_at=i)
+                self.rederived.append(qk)
+                self.resumed_from.append((qk, i))
+            else:
+                for k, hsh in cone.items():
+                    assert row_hash(dict.get(self.table, k)) == hsh, (qk, k)
+                self.carried.append(qk)
+        return self.lookups - before
