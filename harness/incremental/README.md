@@ -25,3 +25,8 @@ state never reset agree after every edit. A mutant that drops missing-row keys
 is caught. Lean (in clpi/software-redundant-compute-expands): run_cone,
 edit_outside, missing_is_a_premise, resume; the premise that the decoder reads the
 table only through get is observed, not proved.
+
+Randomized check: `python3 -B harness/incremental/fuzz/fuzz_s2.py harness/run.py` runs both
+engines through long random chained edits (overlays, withdrawals, inserts at
+missing and unread keys, equal-value rewrites, fresh rows) at many harness seeds
+and compares every verdict with the decoder run whole after every edit.
