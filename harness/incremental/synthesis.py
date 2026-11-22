@@ -12,7 +12,9 @@ Rule (SPEC.md, system 2): the decoder's run is a function of the values
 returned by its lookups (heap order, tie counter and the break condition
 read nothing else), so a query whose cone hashes all still match the
 edited table has the same verdict. An overlay edit at one row key
-re-derives exactly the queries whose cones hold that key; every carried
+re-derives exactly the queries whose cones hold that key and saw a different
+value there (an edit that leaves the row's hash unchanged is cut off early:
+run_cone applies with the edited key inside the cone); every carried
 verdict is admitted only after every cone hash is re-checked against the
 edited table (asserted in the carry path). The checker is the original
 decoder run whole on the edited table.
@@ -99,7 +101,9 @@ class Engine:
         self.rederived, self.carried = [], []
         for qk in self.keys:
             _v, cone = self.state[qk]
-            if row_key in cone:
+            if row_key in cone and cone[row_key] == row_hash(dict.get(self.table, row_key)):
+                pass  # early cutoff: the key's value is what the cone saw (run_cone), carry below
+            if row_key in cone and cone[row_key] != row_hash(dict.get(self.table, row_key)):
                 self._derive(qk)
                 self.rederived.append(qk)
             else:
